@@ -1,5 +1,5 @@
 const { Schema, model } = require('mongoose');
-const reactionSchema = require('./Reaction'); // Import the reactionSchema
+const reactionSchema = require('./Reaction');
 
 const thoughtSchema = new Schema(
   {
