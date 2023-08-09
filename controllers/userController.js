@@ -1,54 +1,112 @@
-const { ObjectId } = require('mongoose').Types;
 const { User } = require('../models');
 
 const userController = {
-  getUsers: async (req, res) => {
+  getAllUsers: async (req, res) => {
     try {
       const users = await User.find();
       res.json(users);
-    } catch (err) {
-      console.log(err);
-      return res.status(500).json(err);
+    } catch (error) {
+      res.status(500).json({ error: 'An error occurred while fetching users.' });
     }
   },
 
-  getSingleUser: async (req, res) => {
+  getUserById: async (req, res) => {
+    const { userId } = req.params;
     try {
-      const user = await User.findOne({ _id: req.params.userId })
-        .select('-__v');
-
+      const user = await User.findById(userId);
       if (!user) {
-        return res.status(404).json({ message: 'No User with that ID' });
+        return res.status(404).json({ message: 'User not found.' });
       }
-
-      res.json({ user });
-    } catch (err) {
-      console.log(err);
-      return res.status(500).json(err);
+      res.json(user);
+    } catch (error) {
+      res.status(500).json({ error: 'An error occurred while fetching the user.' });
     }
   },
 
   createUser: async (req, res) => {
+    const { username, email } = req.body;
     try {
-      const user = await User.create(req.body);
+      const user = await User.create({ username, email });
       res.json(user);
-    } catch (err) {
-      res.status(500).json(err);
+    } catch (error) {
+      res.status(400).json({ error: 'Invalid data provided.' });
+    }
+  },
+
+  updateUser: async (req, res) => {
+    const { userId } = req.params;
+    const { username, email } = req.body;
+
+    try {
+      const updatedUser = await User.findByIdAndUpdate(
+        userId,
+        { username, email },
+        { new: true }
+      );
+
+      if (!updatedUser) {
+        return res.status(404).json({ message: 'User not found.' });
+      }
+
+      res.json(updatedUser);
+    } catch (error) {
+      res.status(500).json({ error: 'An error occurred while updating the user.' });
     }
   },
 
   deleteUser: async (req, res) => {
-    try {
-      const user = await User.findOneAndRemove({ _id: req.params.userId });
+    const { userId } = req.params;
 
-      if (!user) {
-        return res.status(404).json({ message: 'No such User exists' });
+    try {
+      const deletedUser = await User.findByIdAndDelete(userId);
+
+      if (!deletedUser) {
+        return res.status(404).json({ message: 'User not found.' });
       }
 
-      res.json({ message: 'User successfully deleted' });
-    } catch (err) {
-      console.log(err);
-      res.status(500).json(err);
+      res.json({ message: 'User deleted.' });
+    } catch (error) {
+      res.status(500).json({ error: 'An error occurred while deleting the user.' });
+    }
+  },
+
+  addFriend: async (req, res) => {
+    const { userId, friendId } = req.params;
+
+    try {
+      const user = await User.findByIdAndUpdate(
+        userId,
+        { $addToSet: { friends: friendId } },
+        { new: true }
+      );
+
+      if (!user) {
+        return res.status(404).json({ message: 'User not found.' });
+      }
+
+      res.json(user);
+    } catch (error) {
+      res.status(500).json({ error: 'An error occurred while adding the friend.' });
+    }
+  },
+
+  removeFriend: async (req, res) => {
+    const { userId, friendId } = req.params;
+
+    try {
+      const user = await User.findByIdAndUpdate(
+        userId,
+        { $pull: { friends: friendId } },
+        { new: true }
+      );
+
+      if (!user) {
+        return res.status(404).json({ message: 'User not found.' });
+      }
+
+      res.json(user);
+    } catch (error) {
+      res.status(500).json({ error: 'An error occurred while removing the friend.' });
     }
   },
 };

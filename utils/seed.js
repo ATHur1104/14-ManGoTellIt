@@ -1,57 +1,71 @@
 require("dotenv").config();
 const connection = require('../config/connection');
-const { Course, Student } = require('../models');
-const { getRandomName, getRandomAssignments } = require('./data');
+const { User, Thought } = require('../models');
 
-connection.on('error', (err) => err);
 
 connection.once('open', async () => {
-  console.log('connected');
-    // Delete the collections if they exist
-    let courseCheck = await connection.db.listCollections({ name: 'courses' }).toArray();
-    if (courseCheck.length) {
-      await connection.dropCollection('courses');
-    }
+  console.log('Connected to the database.');
 
-    let studentsCheck = await connection.db.listCollections({ name: 'students' }).toArray();
-    if (studentsCheck.length) {
-      await connection.dropCollection('students');
-    }
+  try {
+    // Access the underlying MongoDB collections
+    const userCollection = User.collection;
+    const thoughtCollection = Thought.collection;
 
+    // Drop existing collections
+    await userCollection.drop();
+    await thoughtCollection.drop();
 
-  // Create empty array to hold the students
-  const students = [];
-
-  // Loop 20 times -- add students to the students array
-  for (let i = 0; i < 20; i++) {
-    // Get some random assignment objects using a helper function that we imported from ./data
-    const assignments = getRandomAssignments(20);
-
-    const fullName = getRandomName();
-    const first = fullName.split(' ')[0];
-    const last = fullName.split(' ')[1];
-    const github = `${first}${Math.floor(Math.random() * (99 - 18 + 1) + 18)}`;
-
-    students.push({
-      first,
-      last,
-      github,
-      assignments,
+    // Create users and thoughts
+    const user1 = await userCollection.insertOne({
+      username: 'user1',
+      email: 'user1@example.com',
     });
+
+    const user2 = await userCollection.insertOne({
+      username: 'user2',
+      email: 'user2@example.com',
+    });
+
+    const thought1 = await thoughtCollection.insertOne({
+      thoughtText: 'This is thought 1 by user1.',
+      username: user1.username,
+    });
+
+    const thought2 = await thoughtCollection.insertOne({
+      thoughtText: 'This is thought 2 by user1.',
+      username: user1.username,
+    });
+
+    const reaction1 = {
+      reactionBody: 'Cool thought!',
+      username: user2.username,
+    };
+
+    const reaction2 = {
+      reactionBody: 'I agree!',
+      username: user2.username,
+    };
+
+    const reaction3 = {
+      reactionBody: 'Interesting.',
+      username: user1.username,
+    };
+
+    await thoughtCollection.updateOne(
+      { _id: thought1._id },
+      { $push: { reactions: reaction1 } }
+    );
+
+    await thoughtCollection.updateOne(
+      { _id: thought2._id },
+      { $push: { reactions: [reaction2, reaction3] } }
+    );
+
+    console.log('Seed data has been populated.');
+  } catch (error) {
+    console.error('Error seeding data:', error);
+  } finally {
+    connection.close();
+    console.log('Connection closed.');
   }
-
-  // Add students to the collection and await the results
-  await Student.collection.insertMany(students);
-
-  // Add courses to the collection and await the results
-  await Course.collection.insertOne({
-    courseName: 'UCLA',
-    inPerson: false,
-    students: [...students],
-  });
-
-  // Log out the seed data to indicate what should appear in the database
-  console.table(students);
-  console.info('Seeding complete! 🌱');
-  process.exit(0);
 });
