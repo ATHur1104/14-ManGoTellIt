@@ -2,39 +2,39 @@ require("dotenv").config();
 const connection = require('../config/connection');
 const { User, Thought } = require('../models');
 
-
 connection.once('open', async () => {
   console.log('Connected to the database.');
 
   try {
-    // Access the underlying MongoDB collections
-    const userCollection = User.collection;
-    const thoughtCollection = Thought.collection;
-
     // Drop existing collections
-    await userCollection.drop();
-    await thoughtCollection.drop();
+    await User.collection.drop();
+    await Thought.collection.drop();
 
-    // Create users and thoughts
-    const user1 = await userCollection.insertOne({
+    // Create users
+    const user1 = await User.create({
       username: 'user1',
       email: 'user1@example.com',
     });
 
-    const user2 = await userCollection.insertOne({
+    const user2 = await User.create({
       username: 'user2',
       email: 'user2@example.com',
     });
 
-    const thought1 = await thoughtCollection.insertOne({
+    // Create thoughts and link to users
+    const thought1 = await Thought.create({
       thoughtText: 'This is thought 1 by user1.',
       username: user1.username,
     });
+    user1.thoughts.push(thought1);
+    await user1.save();
 
-    const thought2 = await thoughtCollection.insertOne({
+    const thought2 = await Thought.create({
       thoughtText: 'This is thought 2 by user1.',
       username: user1.username,
     });
+    user1.thoughts.push(thought2);
+    await user1.save();
 
     const reaction1 = {
       reactionBody: 'Cool thought!',
@@ -51,13 +51,13 @@ connection.once('open', async () => {
       username: user1.username,
     };
 
-    await thoughtCollection.updateOne(
-      { _id: thought1._id },
+    await Thought.findByIdAndUpdate(
+      thought1._id,
       { $push: { reactions: reaction1 } }
     );
 
-    await thoughtCollection.updateOne(
-      { _id: thought2._id },
+    await Thought.findByIdAndUpdate(
+      thought2._id,
       { $push: { reactions: [reaction2, reaction3] } }
     );
 

@@ -1,4 +1,4 @@
-const { Thought } = require('../models');
+const { User, Thought, Reaction } = require('../models');
 
 const thoughtController = {
   getAllThoughts: async (req, res) => {
@@ -24,10 +24,24 @@ const thoughtController = {
   },
 
   createThought: async (req, res) => {
-    const { thoughtText, username, userId } = req.body;
+    console.log('Received POST request to create thought:', req.body);
+    const { thoughtText } = req.body;
+    const { userId } = req.params;
+
     try {
-      const thought = await Thought.create({ thoughtText, username });
-      const user = await User.findByIdAndUpdate(userId, { $push: { thoughts: thought._id } });
+      const user = await User.findById(userId);
+      if (!user) {
+        console.log('User not found.');
+        return res.status(404).json({ error: 'User not found.' });
+      }
+
+      const thought = await Thought.create({
+        thoughtText,
+        username: user.username
+      });
+      user.thoughts.push(thought);
+      await user.save();
+
       res.json(thought);
     } catch (error) {
       res.status(400).json({ error: 'Invalid data provided.' });
@@ -73,7 +87,8 @@ const thoughtController = {
 
   createReaction: async (req, res) => {
     const { thoughtId } = req.params;
-    const { reactionBody, username } = req.body;
+    const { reactionBody } = req.body;
+    const username = req.body.username || 'Guest';
 
     try {
       const newReaction = {
@@ -97,23 +112,38 @@ const thoughtController = {
     }
   },
 
+
   deleteReaction: async (req, res) => {
     const { thoughtId, reactionId } = req.params;
-
+  
     try {
-      
-      const updatedThought = await Thought.findByIdAndUpdate(
-        thoughtId,
-        { $pull: { reactions: { _id: reactionId } } },
-        { new: true } 
-      );
-
-      if (!updatedThought) {
+      console.log('Deleting reaction with ID:', reactionId);
+  
+      const thoughtContainingReaction = await Thought.findOne({ _id: thoughtId });
+  
+      if (!thoughtContainingReaction) {
+        console.log('Thought not found.');
         return res.status(404).json({ message: 'Thought not found.' });
       }
-
-      res.json(updatedThought);
+  
+      const reactionIndex = thoughtContainingReaction.reactions.findIndex(
+        reaction => reaction._id.toString() === reactionId
+      );
+  
+      if (reactionIndex === -1) {
+        console.log('Reaction not found in the thought.');
+        return res.status(404).json({ message: 'Reaction not found.' });
+      }
+  
+      thoughtContainingReaction.reactions.splice(reactionIndex, 1);
+  
+      await thoughtContainingReaction.save();
+  
+      console.log('Updated thought after deleting reaction:', thoughtContainingReaction);
+  
+      res.json(thoughtContainingReaction);
     } catch (error) {
+      console.error('Error deleting reaction:', error);
       res.status(500).json({ error: 'An error occurred while deleting the reaction.' });
     }
   },
